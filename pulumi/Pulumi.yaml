@@ -1,0 +1,3 @@
+name: blog-lambda-snapshots
+description: A minimal TypeScript Pulumi program
+runtime: nodejs
