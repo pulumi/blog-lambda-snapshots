@@ -1,0 +1,5 @@
+config:
+  aws-native:profile: pulumi-dev-sandbox
+  aws-native:region: us-west-2
+  aws:profile: pulumi-dev-sandbox
+  aws:region: us-west-2
