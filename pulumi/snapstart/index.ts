@@ -21,11 +21,11 @@ new aws.iam.RolePolicyAttachment("role-policy-attachment", {
   policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
 });
 
-const mvnOutputs = command.local.runOutput({
-  command: "mvn install && mvn package",
-  dir: "../../lambda/blogLambdaSnapStart",
-  assetPaths: ["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]
-});
+// const mvnOutputs = command.local.runOutput({
+//   command: "mvn install && mvn package",
+//   dir: "../../lambda/blogLambdaSnapStart",
+//   assetPaths: ["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]
+// });
 
 const bucket = new aws.s3.Bucket("bucket", {
   versioning: {
@@ -35,7 +35,8 @@ const bucket = new aws.s3.Bucket("bucket", {
 
 const functionCode = new aws.s3.BucketObject("function-code", {
   bucket: bucket.bucket,
-  source: mvnOutputs.assets!.apply(x => x!["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]),
+  source: new pulumi.asset.FileArchive("../../petstore.zip"),
+  // source: mvnOutputs.assets!.apply(x => x!["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]),
 });
 
 const func = new awsNative.lambda.Function("snapstart-func", {
@@ -46,8 +47,13 @@ const func = new awsNative.lambda.Function("snapstart-func", {
   },
   role: role.arn,
   runtime: "java11",
-  handler: "com.pulumi.blogLambdaSnapStart.Handler",
-  timeout: 30,
+
+  handler: "com.amazonaws.serverless.sample.springboot2.StreamLambdaHandler::handleRequest",
+  memorySize: 1512,
+  timeout: 60,
+
+  // handler: "com.pulumi.blogLambdaSnapStart.Handler",
+  // timeout: 30,
   snapStart: {
     applyOn: "PublishedVersions",
   },
@@ -90,3 +96,71 @@ const url = new awsNative.lambda.Url("func-url", {
 
 exports.snapStartUrl = url.functionUrl;
 exports.snapStartFunctionName = func.functionName;
+
+const api = new aws.apigatewayv2.Api("snapstart-api", {
+  protocolType: "HTTP",
+  target: func.arn,
+});
+
+// const integration = new aws.apigatewayv2.Integration("snapstart-integration", {
+//   apiId: api.id,
+//   integrationType: "AWS_PROXY",
+//   connectionType: "INTERNET",
+//   integrationMethod: "GET",
+//   integrationUri: func.arn,
+//   passthroughBehavior: "WHEN_NO_MATCH",
+// });
+
+// const route = new aws.apigatewayv2.Route("snapstart-route", {
+//   apiId: api.id,
+//   routeKey: "ANY /{proxy+}",
+//   target: integration.id.apply(x => `integrations/${x}`),
+// });
+
+// const apiGwRole = new aws.iam.Role("api-gw-role", {
+//   assumeRolePolicy: JSON.stringify({
+//     "Version": "2012-10-17",
+//     "Statement": [{
+//       "Effect": "Allow",
+//       "Principal": {
+//         "Service": "apigateway.amazonaws.com",
+//       },
+//       "Action": "sts:AssumeRole",
+//     }],
+//   }),
+// });
+
+// new aws.iam.RolePolicyAttachment("api-gw-role-policy-attachment", {
+//   role: apiGwRole.name,
+//   policyArn: "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs",
+// });
+
+// const account = new aws.apigateway.Account("snapstart-api-gw-account", {
+//   cloudwatchRoleArn: apiGwRole.arn,
+// });
+
+// const logGroup = new aws.cloudwatch.LogGroup("snapstart-api-gw-access");
+
+// const stage = new aws.apigatewayv2.Stage("snapstart-stage", {
+//   apiId: api.id,
+//   routeSettings: [{
+//     routeKey: route.routeKey,
+//     throttlingBurstLimit: 1,
+//     throttlingRateLimit: 0.5,
+//   }],
+//   autoDeploy: true,
+//   defaultRouteSettings:
+//   // accessLogSettings: {
+//   //   destinationArn: logGroup.arn,
+//   //   format: "$context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] $context.httpMethod $context.resourcePath $context.protocol $context.status $context.responseLength $context.requestId $context.extendedRequestId"
+//   // }
+// });
+
+new aws.lambda.Permission("api-gateway-perm", {
+  action: "lambda:InvokeFunction",
+  function: func.arn,
+  principal: "apigateway.amazonaws.com",
+  sourceArn: api.executionArn.apply(x => `${x}*/*`),
+});
+
+// exports.apiGwEndpoint = pulumi.concat(api.apiEndpoint, "/", stage.name, "/pets");
