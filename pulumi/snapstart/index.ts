@@ -102,6 +102,18 @@ const api = new aws.apigatewayv2.Api("snapstart-api", {
   target: func.arn,
 });
 
+// Imported version from SAM:
+// const sam_gateway = new aws.apigatewayv2.Api("sam-gateway", {
+//   name: "jkodroff-test",
+//   protocolType: "HTTP",
+//   tags: {
+//       "httpapi:createdBy": "SAM",
+//   },
+//   version: "1.0",
+// }, {
+//   protect: true,
+// });
+
 // const integration = new aws.apigatewayv2.Integration("snapstart-integration", {
 //   apiId: api.id,
 //   integrationType: "AWS_PROXY",
@@ -139,7 +151,10 @@ const api = new aws.apigatewayv2.Api("snapstart-api", {
 //   cloudwatchRoleArn: apiGwRole.arn,
 // });
 
-// const logGroup = new aws.cloudwatch.LogGroup("snapstart-api-gw-access");
+// const logGroup = new aws.cloudwatch.LogGroup("snapstart-api-gw-access",
+//   // : pulumi.interpolate`/aws/lambda/${func.functionName}`
+//   name: pulumi.interpolate`/aws/lambda/${func.functionName}`
+// );
 
 // const stage = new aws.apigatewayv2.Stage("snapstart-stage", {
 //   apiId: api.id,
