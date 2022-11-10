@@ -27,7 +27,7 @@ new aws.iam.RolePolicyAttachment("role-policy-attachment", {
 //   assetPaths: ["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]
 // });
 
-const bucket = new aws.s3.Bucket("bucket", {
+const bucket = new aws.s3.Bucket("snapstart-bucket", {
   versioning: {
     enabled: true,
   }
@@ -51,9 +51,6 @@ const func = new awsNative.lambda.Function("snapstart-func", {
   handler: "com.amazonaws.serverless.sample.springboot2.StreamLambdaHandler::handleRequest",
   memorySize: 1512,
   timeout: 60,
-
-  // handler: "com.pulumi.blogLambdaSnapStart.Handler",
-  // timeout: 30,
   snapStart: {
     applyOn: "PublishedVersions",
   },
@@ -70,7 +67,7 @@ const publishVersion = new command.local.Command("publish-version", {
 
 const aliasName = "v1";
 
-new aws.lambda.Alias("alias", {
+const alias = new aws.lambda.Alias("alias", {
   functionName: func.arn,
   functionVersion: "1",
   name: aliasName,
@@ -79,103 +76,51 @@ new aws.lambda.Alias("alias", {
 });
 
 // Gives our alias URL the necessary perms to be invoked without authentication"
-const perm = new aws.lambda.Permission("perm", {
+new aws.lambda.Permission("perm", {
   action: "lambda:InvokeFunctionUrl",
-  "function": func.functionName.apply(name => `${name}:${aliasName}`),
+  "function": alias.arn,
   principal: "*",
   functionUrlAuthType: "NONE",
 });
 
-const url = new awsNative.lambda.Url("func-url", {
-  targetFunctionArn: func.arn,
-  qualifier: aliasName,
-  authType: "NONE",
-}, {
-  dependsOn: perm,
-});
-
-exports.snapStartUrl = url.functionUrl;
-exports.snapStartFunctionName = func.functionName;
-
 const api = new aws.apigatewayv2.Api("snapstart-api", {
   protocolType: "HTTP",
-  target: func.arn,
 });
 
-// Imported version from SAM:
-// const sam_gateway = new aws.apigatewayv2.Api("sam-gateway", {
-//   name: "jkodroff-test",
-//   protocolType: "HTTP",
-//   tags: {
-//       "httpapi:createdBy": "SAM",
-//   },
-//   version: "1.0",
-// }, {
-//   protect: true,
-// });
+const integration = new aws.apigatewayv2.Integration("lambdaIntegration", {
+  apiId: api.id,
+  integrationType: "AWS_PROXY",
+  integrationUri: alias.arn,
+  integrationMethod: "GET",
+  payloadFormatVersion: "1.0",
+  passthroughBehavior: "WHEN_NO_MATCH",
+  connectionType: "INTERNET"
+});
 
-// const integration = new aws.apigatewayv2.Integration("snapstart-integration", {
-//   apiId: api.id,
-//   integrationType: "AWS_PROXY",
-//   connectionType: "INTERNET",
-//   integrationMethod: "GET",
-//   integrationUri: func.arn,
-//   passthroughBehavior: "WHEN_NO_MATCH",
-// });
+const route = new aws.apigatewayv2.Route("apiRoute", {
+  apiId: api.id,
+  routeKey: "$default",
+  target: pulumi.interpolate`integrations/${integration.id}`,
+});
 
-// const route = new aws.apigatewayv2.Route("snapstart-route", {
-//   apiId: api.id,
-//   routeKey: "ANY /{proxy+}",
-//   target: integration.id.apply(x => `integrations/${x}`),
-// });
+new aws.apigatewayv2.Stage("apiStage", {
+  apiId: api.id,
+  name: "$default",
+  routeSettings: [
+    {
+      routeKey: route.routeKey,
+      throttlingBurstLimit: 5000,
+      throttlingRateLimit: 10000,
+    },
+  ],
+  autoDeploy: true,
+}, { dependsOn: [route] });
 
-// const apiGwRole = new aws.iam.Role("api-gw-role", {
-//   assumeRolePolicy: JSON.stringify({
-//     "Version": "2012-10-17",
-//     "Statement": [{
-//       "Effect": "Allow",
-//       "Principal": {
-//         "Service": "apigateway.amazonaws.com",
-//       },
-//       "Action": "sts:AssumeRole",
-//     }],
-//   }),
-// });
-
-// new aws.iam.RolePolicyAttachment("api-gw-role-policy-attachment", {
-//   role: apiGwRole.name,
-//   policyArn: "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs",
-// });
-
-// const account = new aws.apigateway.Account("snapstart-api-gw-account", {
-//   cloudwatchRoleArn: apiGwRole.arn,
-// });
-
-// const logGroup = new aws.cloudwatch.LogGroup("snapstart-api-gw-access",
-//   // : pulumi.interpolate`/aws/lambda/${func.functionName}`
-//   name: pulumi.interpolate`/aws/lambda/${func.functionName}`
-// );
-
-// const stage = new aws.apigatewayv2.Stage("snapstart-stage", {
-//   apiId: api.id,
-//   routeSettings: [{
-//     routeKey: route.routeKey,
-//     throttlingBurstLimit: 1,
-//     throttlingRateLimit: 0.5,
-//   }],
-//   autoDeploy: true,
-//   defaultRouteSettings:
-//   // accessLogSettings: {
-//   //   destinationArn: logGroup.arn,
-//   //   format: "$context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] $context.httpMethod $context.resourcePath $context.protocol $context.status $context.responseLength $context.requestId $context.extendedRequestId"
-//   // }
-// });
-
-new aws.lambda.Permission("api-gateway-perm", {
+new aws.lambda.Permission("permission", {
   action: "lambda:InvokeFunction",
-  function: func.arn,
   principal: "apigateway.amazonaws.com",
-  sourceArn: api.executionArn.apply(x => `${x}*/*`),
+  function: alias.arn,
+  sourceArn: api.executionArn.apply(x => `${x}/*/*`),
 });
 
-// exports.apiGwEndpoint = pulumi.concat(api.apiEndpoint, "/", stage.name, "/pets");
+export const apiUrl = pulumi.concat(api.apiEndpoint, "/pets");

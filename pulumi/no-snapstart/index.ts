@@ -20,7 +20,7 @@ new aws.iam.RolePolicyAttachment("role-policy-attachment", {
   policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
 });
 
-const bucket = new aws.s3.Bucket("bucket", {
+const bucket = new aws.s3.Bucket("no-snapstart-bucket", {
   versioning: {
     enabled: true,
   }
@@ -44,11 +44,11 @@ const func = new awsNative.lambda.Function("no-snapstart-func", {
   timeout: 60,
 });
 
-const api = new aws.apigatewayv2.Api("snapstart-api", {
+const api = new aws.apigatewayv2.Api("no-snapstart-api", {
   protocolType: "HTTP",
 });
 
-const integration = new aws.apigatewayv2.Integration("lambdaIntegration", {
+const integration = new aws.apigatewayv2.Integration("integration", {
   apiId: api.id,
   integrationType: "AWS_PROXY",
   integrationUri: func.arn, // make this the alias ARN to use w/snapstart
@@ -58,13 +58,13 @@ const integration = new aws.apigatewayv2.Integration("lambdaIntegration", {
   connectionType: "INTERNET"
 });
 
-const route = new aws.apigatewayv2.Route("apiRoute", {
+const route = new aws.apigatewayv2.Route("route", {
   apiId: api.id,
   routeKey: "$default",
   target: pulumi.interpolate`integrations/${integration.id}`,
 });
 
-new aws.apigatewayv2.Stage("apiStage", {
+new aws.apigatewayv2.Stage("stage", {
   apiId: api.id,
   name: "$default",
   routeSettings: [
