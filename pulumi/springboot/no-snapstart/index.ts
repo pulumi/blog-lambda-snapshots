@@ -28,7 +28,7 @@ const bucket = new aws.s3.Bucket("no-snapstart-bucket", {
 
 const functionCode = new aws.s3.BucketObject("function-code", {
   bucket: bucket.bucket,
-  source: new pulumi.asset.FileArchive("../../petstore.zip"),
+  source: new pulumi.asset.FileArchive("../petstore.zip"),
 });
 
 const func = new awsNative.lambda.Function("no-snapstart-func", {

@@ -21,12 +21,6 @@ new aws.iam.RolePolicyAttachment("role-policy-attachment", {
   policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
 });
 
-// const mvnOutputs = command.local.runOutput({
-//   command: "mvn install && mvn package",
-//   dir: "../../lambda/blogLambdaSnapStart",
-//   assetPaths: ["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]
-// });
-
 const bucket = new aws.s3.Bucket("snapstart-bucket", {
   versioning: {
     enabled: true,
@@ -35,8 +29,7 @@ const bucket = new aws.s3.Bucket("snapstart-bucket", {
 
 const functionCode = new aws.s3.BucketObject("function-code", {
   bucket: bucket.bucket,
-  source: new pulumi.asset.FileArchive("../../petstore.zip"),
-  // source: mvnOutputs.assets!.apply(x => x!["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]),
+  source: new pulumi.asset.FileArchive("../petstore.zip"),
 });
 
 const func = new awsNative.lambda.Function("snapstart-func", {
