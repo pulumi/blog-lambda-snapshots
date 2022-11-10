@@ -1,0 +1,12 @@
+{
+    "name": "blog-lambda-snapshots-hello-world-no-snapstart",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^14"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^5.20.0",
+        "@pulumi/command": "^0.6.0",
+        "@pulumi/pulumi": "^3.0.0"
+    }
+}

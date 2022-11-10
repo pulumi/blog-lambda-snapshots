@@ -1,54 +1,39 @@
 # blog-lambda-snapshots
 
-This repository contains code to create 2 simple AWS Lambda functions in Java: one with SnapStart enabled (in the `pulumi/snapstart` directory) and one without SnapStart enabled (in the `pulumi/no-snapstart` directory).
+This repository contains code to deploy 2 AWS Lambda functions, each with 2 versions: with and without SnapStart enabled:
 
-This code can be modified to benchmark against a function of your choosing by modifying this line:
-
-```typescript
-source: mvnOutputs.assets!.apply(x => x!["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]),
-```
-
-to something like:
-
-```typescript
-source: source: new pulumi.asset.FileArchive("path/to/file/jar"),
-```
-
-Be sure to include all necessary dependencies. For more information on packaging Java functions for use with AWS Lambda, see [Deploy Java Lambda functions with .zip or JAR file archives](https://docs.aws.amazon.com/lambda/latest/dg/java-package.html).
+- `lambda/` contains the code for the simple Hello World function.
+- `pulumi/hello-world/snapstart` and `pulumi/hello-world/no-snapstart` contain Pulumi code to deploy the Hello World function with and without SnapStart enabled, respectively.
+- `pulumi/springboot/snapstart` and `pulumi/springboot/no-snapstart` contain Pulumi code to deploy a Spring Boot 2 Lambda with and without SnapStart enabled, respectively.
+- `pulumi/springboot/petstore.zip` contains the code for the Spring Boot Lambda function, taken from: <https://github.com/awslabs/aws-serverless-java-container/tree/main/samples/springboot2/pet-store>
 
 ## Deploying the Functions
 
-To deploy the function with SnapStart:
+To deploy one of the stacks:
 
 ```bash
-cd pulumi/snapstart && pulumi up -y
+cd pulumi/springboot/snapstart && pulumi up -y
 ```
 
-To deploy the function without SnapStart:
-
-```bash
-cd pulumi/no-snapstart && pulumi up -y
-```
+Substitute `hello-world` for `springboot` above for the Hello World function. Substitute `no-snapstart` for the version of the function without SnapStart enabled.
 
 ## Running benchmarks
 
-To run performance benchmarks with [Apache ab](https://httpd.apache.org/docs/2.4/programs/ab.html) (installed by default on macOS), run the following:
+To run performance benchmarks with [Apache ab](https://httpd.apache.org/docs/2.4/programs/ab.html) (installed by default on macOS) for the Hello World function, run the following command in the same directory as the Pulumi stack you want to test:
 
 ```bash
-cd pulumi/snapstart
-ab -n 1000 -c 50 $(pulumi stack output snapStartUrl)
+ab -n 1000 -c 50 $(pulumi stack output functionUrl)
 ```
 
-or:
+For the Spring Boot function, the command is:
 
 ```bash
-cd pulumi/no-snapstart
-ab -n 1000 -c 50 $(pulumi stack output noSnapStartUrl)
+ab -n 1000 -c 50 $(pulumi stack output apiUrl)
 ```
 
 ## Querying benchmark metrics
 
-To retrieve metrics on SnapStart performance improvements, in the CloudWatch console, go to Log Insights, select the log group for one of the functions (either SnapStart or no SnapStart), and run the following query:
+To retrieve metrics on SnapStart performance improvements, in the CloudWatch console, go to Log Insights, select the log group for the function you're testing, and run the following query:
 
 ```sql
 filter @type = "REPORT"
@@ -57,3 +42,5 @@ filter @type = "REPORT"
 count(*) as invocations, pct(@duration+coalesce(@initDuration,0)+coalesce(restoreDuration,0), 50) as p50, pct(@duration+coalesce(@initDuration,0)+coalesce(restoreDuration,0), 90) as p90, pct(@duration+coalesce(@initDuration,0)+coalesce(restoreDuration,0), 99) as p99, pct(@duration+coalesce(@initDuration,0)+coalesce(restoreDuration,0), 99.9) as p99.9 group by function, (ispresent(@initDuration) or ispresent(restoreDuration)) as coldstart
 | sort by coldstart desc
 ```
+
+In testing, the Hello World function yielded about a 40% improvement, whereas the Spring Boot function yielded about a 1200% improvement.
