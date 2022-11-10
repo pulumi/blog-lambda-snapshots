@@ -1,6 +1,5 @@
 import * as awsNative from "@pulumi/aws-native";
 import * as aws from "@pulumi/aws";
-import * as command from "@pulumi/command";
 import * as pulumi from "@pulumi/pulumi";
 
 const role = new aws.iam.Role("role", {
@@ -20,12 +19,6 @@ new aws.iam.RolePolicyAttachment("role-policy-attachment", {
   role: role.name,
   policyArn: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
 });
-
-// const mvnOutputs = command.local.runOutput({
-//   command: "mvn install && mvn package",
-//   dir: "../../lambda/blogLambdaSnapStart",
-//   assetPaths: ["target/blogLambdaSnapStart-1.0-SNAPSHOT.jar"]
-// });
 
 const bucket = new aws.s3.Bucket("bucket", {
   versioning: {
@@ -49,40 +42,7 @@ const func = new awsNative.lambda.Function("no-snapstart-func", {
   handler: "com.amazonaws.serverless.sample.springboot2.StreamLambdaHandler::handleRequest",
   memorySize: 1512,
   timeout: 60,
-
-  //handler: "com.pulumi.blogLambdaSnapStart.Handler",
-  // timeout: 30,
 });
-
-
-// Gives our alias URL the necessary perms to be invoked without authentication"
-// const perm = new aws.lambda.Permission("perm", {
-//   action: "lambda:InvokeFunctionUrl",
-//   "function": func.arn,
-//   principal: "apigateway.amazonaws.com",
-//   functionUrlAuthType: "NONE",
-// });
-
-
-
-//api.executionArn.apply(x => `${x}*/*`),
-
-// Works:
-// new aws.lambda.Permission("api-gateway-perm", {
-//   action: "lambda:InvokeFunction",
-//   function: func.arn,
-//   principal: "apigateway.amazonaws.com",
-//   sourceArn: api.executionArn.apply(x => `${x}*/*`),
-// });
-
-
-
-// const url = new awsNative.lambda.Url("func-url", {
-//   targetFunctionArn: func.arn,
-//   authType: "NONE",
-// }, {
-//   dependsOn: perm,
-// });
 
 const api = new aws.apigatewayv2.Api("snapstart-api", {
   protocolType: "HTTP",
@@ -104,7 +64,7 @@ const route = new aws.apigatewayv2.Route("apiRoute", {
   target: pulumi.interpolate`integrations/${integration.id}`,
 });
 
-const stage = new aws.apigatewayv2.Stage("apiStage", {
+new aws.apigatewayv2.Stage("apiStage", {
   apiId: api.id,
   name: "$default",
   routeSettings: [
@@ -117,14 +77,11 @@ const stage = new aws.apigatewayv2.Stage("apiStage", {
   autoDeploy: true,
 }, { dependsOn: [route] });
 
-const perm2 = new aws.lambda.Permission("permission", {
+new aws.lambda.Permission("permission", {
   action: "lambda:InvokeFunction",
   principal: "apigateway.amazonaws.com",
   function: func.arn,
   sourceArn: api.executionArn.apply(x => `${x}/*/*`),
 });
 
-export const apiUrl = api.apiEndpoint;
-
-// exports.noSnapStartUrl = url.functionUrl;
-// exports.noSnapStartFunctionName = func.functionName;
+export const apiUrl = pulumi.concat(api.apiEndpoint, "/pets");
