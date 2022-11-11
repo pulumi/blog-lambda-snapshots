@@ -1,0 +1,3 @@
+name: blog-lambda-snapshots-hello-world-no-snapstart
+description: A minimal TypeScript Pulumi program
+runtime: nodejs

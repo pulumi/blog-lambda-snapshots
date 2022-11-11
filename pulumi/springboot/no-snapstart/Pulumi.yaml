@@ -1,0 +1,3 @@
+name: blog-lambda-snapshots-springboot-no-snapstart
+description: A minimal TypeScript Pulumi program
+runtime: nodejs
