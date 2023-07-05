@@ -8,6 +8,6 @@
         "@pulumi/aws": "^5.19.0",
         "@pulumi/aws-native": "^0.40.0",
         "@pulumi/command": "^0.5.2",
-        "@pulumi/pulumi": "^3.0.0"
+        "@pulumi/pulumi": "^3.74.0"
     }
 }
